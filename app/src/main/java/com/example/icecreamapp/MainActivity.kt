@@ -147,9 +147,7 @@ fun dropDownMenu() {
                 )
             }
         }
-
         ImageCenter(selectedItem = selectedItem)
-
         Row(
             modifier = Modifier.fillMaxWidth1(),
             horizontalArrangement = Arrangement.Center
@@ -159,6 +157,9 @@ fun dropDownMenu() {
                     // Decrease quantity
                     if (quantity > 0) {
                         quantity--
+                    } else {
+                        // Show Toast message for negative quantity
+                        Toast.makeText(context, "Quantity cannot be negative!", Toast.LENGTH_SHORT).show()
                     }
                 },
                 modifier = Modifier.padding(8.dp)
@@ -196,6 +197,7 @@ fun dropDownMenu() {
                 Text(text = "+")
             }
         }
+
 
         // Calculate and display the total cost
         var totalCost = if (selectedItem == "Cup") {
