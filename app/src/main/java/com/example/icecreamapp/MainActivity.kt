@@ -105,9 +105,6 @@ fun dropDownMenu() {
     var quantity by remember { mutableStateOf(0) }
     val costPerCup = 3.39
     val costPerCone = 3.69
-    var couponCode by remember { mutableStateOf("") }
-    var totalCost by remember { mutableStateOf(0.0) }
-    var ref=0;
     val context = LocalContext.current
 
     val icon = if (expanded) {
@@ -131,13 +128,6 @@ fun dropDownMenu() {
                     textFiledSize = coordinates.size.toSize()
                 },
             label = { Text(text = "Select Variation") },
-//            trailingIcon = {
-//                Icon(
-//                    icon,
-//                    contentDescription = null,
-//                    Modifier.clickable { expanded = !expanded }
-//                )
-//            }
         )
         DropdownMenu(
             expanded = expanded,
@@ -175,23 +165,7 @@ fun dropDownMenu() {
             ) {
                 Text(text = "-")
             }
-//            OutlinedTextField(
-//                value = quantity.toString(),
-//                onValueChange = {
-//                    // Update the quantity when the text changes
-//                    val newQuantity = it.toIntOrNull() ?: 0
-//                    if (newQuantity >= 0) {
-//                        quantity = newQuantity
-//                    }
-//                },
-//                keyboardOptions = KeyboardOptions.Default.copy(
-//                    keyboardType = KeyboardType.Number
-//                ),
-//                singleLine = true,
-//                modifier = Modifier
-//                    .weight(1f)
-//                    .padding(horizontal = 8.dp)
-//            )
+
             OutlinedTextField(
                 value = quantity.toString(),
                 onValueChange = {
@@ -229,40 +203,6 @@ fun dropDownMenu() {
         } else {
             quantity * costPerCone
         }
-        if (couponCode == "TEST") {
-            totalCost *= 0.95 // Apply discount
-            Toast.makeText(LocalContext.current, "Coupon applied successfully! New total: $${String.format("%.2f", totalCost)}", Toast.LENGTH_SHORT).show()
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth1(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier.weight(1f)
-            ) {
-                OutlinedTextField(
-                    value = couponCode,
-                    onValueChange = { couponCode = it },
-                    label = { Text(text = "Enter Coupon Code") },
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-            }
-
-            Button(
-                onClick = {
-                    if(couponCode == "TEST"){
-                        Toast.makeText(context, "Coupon Applied Successfully! New total: $${String.format("%.2f", totalCost)}", Toast.LENGTH_SHORT).show()
-                }
-                    else
-                    {
-                        Toast.makeText(context, "Coupon not applicable or Field Empty!", Toast.LENGTH_SHORT).show()
-                    }
-                                            },
-                modifier = Modifier.padding(8.dp)
-            ) {
-                Text(text = "Check Coupon")
-            }
-        }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxWidth1() // Ensure the Column takes up the full width
@@ -279,17 +219,10 @@ fun dropDownMenu() {
     }
 }
 
-
 @Composable
 fun ImageCenter(selectedItem: String) {
-    val imageRes = when (selectedItem) {
-        "Cone" -> R.drawable.cone_image
-        "Cup" -> R.drawable.cup_image
-        else -> R.drawable.icecream
-    }
-
+    val imageRes = R.drawable.icecream
     val image = painterResource(imageRes)
-
     Image(
         painter = image,
         contentDescription = null, // Provide a description if needed
