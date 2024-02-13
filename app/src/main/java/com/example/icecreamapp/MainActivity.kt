@@ -107,7 +107,6 @@ fun dropDownMenu() {
     val costPerCone = 3.69
     var couponCode by remember { mutableStateOf("") }
     var totalCost by remember { mutableStateOf(0.0) }
-    var ref=0;
     val context = LocalContext.current
 
     val icon = if (expanded) {
@@ -131,13 +130,13 @@ fun dropDownMenu() {
                     textFiledSize = coordinates.size.toSize()
                 },
             label = { Text(text = "Select Variation") },
-//            trailingIcon = {
-//                Icon(
-//                    icon,
-//                    contentDescription = null,
-//                    Modifier.clickable { expanded = !expanded }
-//                )
-//            }
+            trailingIcon = {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    Modifier.clickable { expanded = !expanded }
+                )
+            }
         )
         DropdownMenu(
             expanded = expanded,
