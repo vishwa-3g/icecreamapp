@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,6 +43,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.fillMaxWidth as fillMaxWidth1
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
@@ -62,8 +64,6 @@ class MainActivity : ComponentActivity() {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 IceCreamAppBar()
                 dropDownMenu()
-
-
             }
 
         }
@@ -73,11 +73,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun IceCreamAppBar() {
     Surface(
-        color = Color.Red , // Corrected background color to light blue
-        modifier = Modifier
-            .fillMaxWidth1() // Corrected typo from fillMaxWidth1 to fillMaxWidth
-            .height(60.dp)
-    ) {
+        ) {
         TopAppBar(
             title = {
                 Text(
@@ -85,12 +81,18 @@ fun IceCreamAppBar() {
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = 12.dp), // Added top padding to lower the text
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    fontSize = 20.sp, // Adjust the size as needed
+                    fontWeight = FontWeight.Bold,
+
+
                 )
             },
             modifier = Modifier
                 .fillMaxWidth1() // Corrected typo from fillMaxWidth1 to fillMaxWidth
                 .height(60.dp)
+                .background(color = Color(0xFFE1BEE7))
+
         )
     }
 }
@@ -114,10 +116,18 @@ fun dropDownMenu() {
     } else {
         Icons.Default.KeyboardArrowDown
     }
-
-    Column(modifier = Modifier.padding(10.dp)) {
+    Surface(
+        color = Color(0xFFE1BEE7), // Light purple background color
+        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomEnd = 20.dp, bottomStart = 20.dp) // Apply curve to top corners
+    )
+    {
+    Column(modifier =
+    Modifier
+        .background(color = Color(0xFFE1BEE7))) {
         Text(
-            text = "Type:",
+            text = "  Type:",
+            fontSize = 20.sp, // Adjust the size as needed
+            fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -228,7 +238,7 @@ fun dropDownMenu() {
         } else {
             quantity * costPerCone
         }
-        if (couponCode == "TEST") {
+        if (couponCode == "TREAT05") {
             totalCost *= 0.95 // Apply discount
             Toast.makeText(LocalContext.current, "Coupon applied successfully! New total: $${String.format("%.2f", totalCost)}", Toast.LENGTH_SHORT).show()
         }
@@ -276,6 +286,7 @@ fun dropDownMenu() {
         }
 
     }
+}
 }
 
 
