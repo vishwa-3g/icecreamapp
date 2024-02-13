@@ -84,8 +84,10 @@ fun IceCreamAppBar() {
                     text = "Ice Cream Bar",
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(top = 12.dp), // Added top padding to lower the text
+                        .padding(top = 12.dp),
+                    // Added top padding to lower the text
                     textAlign = TextAlign.Center
+
                 )
             },
             modifier = Modifier
@@ -116,8 +118,10 @@ fun dropDownMenu() {
     Column(modifier = Modifier.padding(10.dp)) {
         Text(
             text = "Type:",
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(bottom = 8.dp)
+            style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold),
+            modifier = Modifier
+                .padding(bottom = 8.dp)
+
         )
         OutlinedTextField(
             value = selectedItem,
