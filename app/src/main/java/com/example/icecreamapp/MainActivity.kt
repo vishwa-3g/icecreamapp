@@ -136,7 +136,6 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
     val costPerCup = 3.39
     val costPerCone = 3.69
     var couponCode by remember { mutableStateOf("") }
-    val totalCost = viewModel.totalCost.value
     val couponDiscount = viewModel.couponDiscount.value
 
     // Type selection dropdown
