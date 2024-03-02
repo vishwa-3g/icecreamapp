@@ -98,6 +98,7 @@ fun IceCreamShopScreen(viewModel: IceCreamViewModel = viewModel()) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(16.dp)) {
         IceCreamAppBar()
         IceCreamSelectionUI(viewModel)
+        CartSummary(viewModel)
     }
 }
 
@@ -261,7 +262,7 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
 @Composable
 fun CartItemsList(viewModel: IceCreamViewModel) {
     val cartItems = viewModel.cartItems
-    val totalCost by viewModel.totalCost
+
 
     Text("Cart Items:", Modifier.padding(8.dp))
 
@@ -271,31 +272,62 @@ fun CartItemsList(viewModel: IceCreamViewModel) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = 200.dp) // Set the max height to your preference
+            .heightIn(max = 180.dp) // Set the max height to your preference
             .clip(cornerShape) // Apply the rounded corners to the box
             .background(Color.LightGray) // Set the background color
     ) {
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
+        LazyColumn {
             itemsIndexed(cartItems) { index, item ->
-                CartItemRow(cartItem = item, onRemove = { viewModel.removeFromCart(index) })
+                CartItemRow(
+                    cartItem = item,
+                    onRemove = { viewModel.removeFromCart(index) }
+                )
             }
         }
     }
-
-    Text("Total Cost: $${String.format("%.2f", totalCost)}",
-        style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold),
-        modifier = Modifier.padding(8.dp))
 }
 @Composable
 fun CartItemRow(cartItem: CartItem, onRemove: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("${cartItem.type} - ${cartItem.flavor} x${cartItem.quantity}", style = MaterialTheme.typography.bodyLarge)
-        Spacer(modifier = Modifier.weight(1f))
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "${cartItem.type} - ${cartItem.flavor} x${cartItem.quantity} - $${String.format("%.2f", cartItem.cost)}",
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
         IconButton(onClick = onRemove) {
             Icon(imageVector = Icons.Default.Delete, contentDescription = "Remove")
         }
     }
 }
+@Composable
+fun CartSummary(viewModel: IceCreamViewModel) {
+    val totalCost by viewModel.totalCost
+    val couponDiscount = viewModel.couponDiscount.value
+    val originalTotal = viewModel.cartItems.sumOf { it.cost * it.quantity }
+    val discountAmount = originalTotal * couponDiscount
+
+    Column(modifier = Modifier.padding(8.dp)) {
+        if (couponDiscount > 0) {
+            Text(
+                text = "   Discount: -$${String.format("%.2f", discountAmount)}",
+                style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold),
+                color=Color.Red,
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+        }
+        Text(
+            text = "Total Cost: $${String.format("%.2f", totalCost)}",
+            style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold),
+            modifier = Modifier.padding(8.dp)
+        )
+    }
+}
+
 
 @Preview(showBackground = true)
 @Composable
