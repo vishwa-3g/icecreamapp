@@ -52,8 +52,14 @@ class IceCreamViewModel : ViewModel() {
     private val _totalCost = mutableStateOf(0.0)
     val totalCost: State<Double> = _totalCost
 
+    private val costPerCup = 3.39
+    private val costPerCone = 3.69
     fun addToCart(item: CartItem) {
-        _cartItems.add(item)
+        val flavorPrice = flavorPricing[item.flavor] ?: 0.0 // Default to 0.0 if not found
+        val baseCost = if (item.type == "Cup") costPerCup else costPerCone
+        val totalItemCost = baseCost + flavorPrice
+        val newItem = item.copy(cost = totalItemCost * item.quantity)
+        _cartItems.add(newItem)
         calculateTotalCost()
     }
 
@@ -81,6 +87,20 @@ class IceCreamViewModel : ViewModel() {
         _totalCost.value = subtotal - discountAmount
     }
 }
+val flavorPricing = mapOf(
+    "Mango" to 3.5,
+    "Strawberry" to 2.0,
+    "Chocolate" to 3.5,
+    "Butterscotch" to 2.5,
+    "Vanilla" to 2.0,
+    "Banana" to 2.5,
+    "Pistachio" to 1.5,
+    "Raspberry" to 1.5,
+    "Lemon" to 2.0,
+    "Coffee" to 2.5,
+    "Caramel" to 1.5,
+    "Almond" to 3.5
+)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -159,17 +179,21 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
         onDismissRequest = { expanded = false },
         modifier = Modifier.fillMaxWidth()
     ) {
-        items.forEach { label ->
-            DropdownMenuItem(
-                text = { Text(label) },
-                onClick = {
-                    selectedItem = label
-                    expanded = false
-                }
-            )
-        }
+        DropdownMenuItem(
+            text = { Text("Cup - $${String.format("%.2f", costPerCup)}") },
+            onClick = {
+                selectedItem = "Cup"
+                expanded = false
+            }
+        )
+        DropdownMenuItem(
+            text = { Text("Cone - $${String.format("%.2f", costPerCone)}") },
+            onClick = {
+                selectedItem = "Cone"
+                expanded = false
+            }
+        )
     }
-
     // Flavor selection with LazyColumn
     Text("Select Flavor:", Modifier.padding(top = 8.dp))
     Box(
@@ -187,9 +211,10 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
             items(flavors) { flavor ->
                 val isSelected = flavor == selectedFlavor
                 val backgroundColor = if (isSelected) Color.LightGray else Color.Transparent // Change the background color if item is selected
+                val flavorPrice = flavorPricing[flavor] ?: 0.0 // Get flavor price, defaulting to 0.0 if not found
 
                 Text(
-                    text = flavor,
+                    text = "$flavor - $${String.format("%.2f", flavorPrice)}",
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
@@ -201,7 +226,6 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
                 )
             }
         }
-
     }
 
     // Quantity selection
