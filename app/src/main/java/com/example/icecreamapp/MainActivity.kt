@@ -82,7 +82,7 @@ class IceCreamViewModel : ViewModel() {
     }
 
     private fun calculateTotalCost() {
-        val subtotal = _cartItems.sumOf { it.cost * it.quantity }
+        val subtotal = _cartItems.sumOf { it.cost }
         val discountAmount = subtotal * _couponDiscount.value
         _totalCost.value = subtotal - discountAmount
     }
@@ -107,11 +107,18 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             IcecreamappTheme {
-                IceCreamShopScreen()
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize() // Fill the available space
+                        .background(color = Color(0xFFE6E6FA)) // Set the background color
+                ) {
+                    IceCreamShopScreen()
+                }
+            }
+
             }
         }
     }
-}
 
 @Composable
 fun IceCreamShopScreen(viewModel: IceCreamViewModel = viewModel()) {
@@ -129,18 +136,18 @@ fun IceCreamAppBar() {
         TopAppBar(
             title = {
                 Text(
-                    text = "Ice Cream Shop",
+                    text = "\uD83C\uDF66Ice Cream Shop\uD83C\uDF66",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp),
+                        .padding(top = 10.dp),
                     textAlign = TextAlign.Center,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                 )
             },
             modifier = Modifier
-                .height(60.dp)
-                .background(color = Color(0xFFE1BEE7))
+                .height(50.dp)
+                .background(color = Color(0xFFE6E6FA))
         )
     }
 }
@@ -195,13 +202,15 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
         )
     }
     // Flavor selection with LazyColumn
-    Text("Select Flavor:", Modifier.padding(top = 8.dp))
+    Text("\uD83C\uDF68 Select Flavor: \uD83C\uDF67", Modifier
+        .padding(top = 8.dp)
+        .padding(bottom = 8.dp))
     Box(
         modifier = Modifier
             .height(150.dp)
             .fillMaxWidth()
             .background(Color.White) // Background color for the border
-            .border(1.dp, Color.Cyan, shape = RoundedCornerShape(8.dp))
+            .border(1.dp, Color.Blue, shape = RoundedCornerShape(8.dp))
             // Border color and width
             .padding(4.dp) // Padding inside the border
     ) {
@@ -210,7 +219,7 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
         ) {
             items(flavors) { flavor ->
                 val isSelected = flavor == selectedFlavor
-                val backgroundColor = if (isSelected) Color.LightGray else Color.Transparent // Change the background color if item is selected
+                val backgroundColor = if (isSelected) Color.Gray else Color.Transparent // Change the background color if item is selected
                 val flavorPrice = flavorPricing[flavor] ?: 0.0 // Get flavor price, defaulting to 0.0 if not found
 
                 Text(
@@ -250,9 +259,9 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
             onClick = {
                 viewModel.applyCoupon(couponCode)
                 if (viewModel.couponDiscount.value > 0) {
-                    Toast.makeText(context, "Coupon Applied!", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Coupon Applied ✔", Toast.LENGTH_LONG).show()
                 } else {
-                    Toast.makeText(context, "Invalid Coupon", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Invalid Coupon ❌", Toast.LENGTH_LONG).show()
                 }
             },
             modifier = Modifier.weight(0.3f)
@@ -264,7 +273,7 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
     }
     if (couponDiscount > 0) {
         Text(
-            text = "Discount Applied Successfully",
+            text = "\uD83C\uDF89 Discount Applied Successfully! \uD83C\uDF89",
             style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.primary),
             modifier = Modifier.padding(vertical = 8.dp)
         )
@@ -274,7 +283,7 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
         onClick = {
             val cost = if (selectedItem == "Cup") costPerCup else costPerCone
             viewModel.addToCart(CartItem(selectedItem, selectedFlavor, quantity, cost))
-            Toast.makeText(context, "Added to cart", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Added to cart ✔", Toast.LENGTH_SHORT).show()
         },
 
         modifier = Modifier.padding(top = 10.dp)
@@ -288,7 +297,7 @@ fun CartItemsList(viewModel: IceCreamViewModel) {
     val cartItems = viewModel.cartItems
 
 
-    Text("Cart Items:", Modifier.padding(8.dp))
+    Text(" \uD83D\uDED2 Cart Items:", Modifier.padding(8.dp))
 
     val cornerShape = RoundedCornerShape(8.dp) // Adjust the corner radius as per your preference
 
@@ -332,8 +341,9 @@ fun CartItemRow(cartItem: CartItem, onRemove: () -> Unit) {
 fun CartSummary(viewModel: IceCreamViewModel) {
     val totalCost by viewModel.totalCost
     val couponDiscount = viewModel.couponDiscount.value
-    val originalTotal = viewModel.cartItems.sumOf { it.cost * it.quantity }
+    val originalTotal = viewModel.cartItems.sumOf { it.cost }
     val discountAmount = originalTotal * couponDiscount
+
 
     Column(modifier = Modifier.padding(8.dp)) {
         if (couponDiscount > 0) {
