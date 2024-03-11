@@ -157,7 +157,6 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
     val context = LocalContext.current
     var selectedItem by remember { mutableStateOf("Cone") }
     var expanded by remember { mutableStateOf(false) }
-    val items = listOf("Cone", "Cup")
     var selectedFlavor by remember { mutableStateOf("Mango") }
     val flavors = listOf("Mango", "Strawberry", "Chocolate", "Butterscotch", "Vanilla", "Banana", "Pistachio", "Raspberry", "Lemon", "Coffee", "Caramel", "Almond")
     var quantity by remember { mutableStateOf(1) }
