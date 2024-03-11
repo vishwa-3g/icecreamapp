@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -122,7 +124,15 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun IceCreamShopScreen(viewModel: IceCreamViewModel = viewModel()) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(16.dp)) {
+    // This scroll state allows the entire column content to scroll
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier = Modifier
+            .verticalScroll(scrollState) // Allow vertical scrolling
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         IceCreamAppBar()
         IceCreamSelectionUI(viewModel)
         CartSummary(viewModel)
