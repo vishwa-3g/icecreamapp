@@ -29,22 +29,43 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.example.icecreamapp.ui.theme.IcecreamappTheme
 
-
+//cart items list
 data class CartItem(
     val type: String,
     val flavor: String,
     val quantity: Int,
     val cost: Double
 )
+data class Order(
+    val id: Int,
+    val items: List<CartItem>,
+    val totalCost: Double
+)
+
+object DummyDatabase {
+    private val orders = mutableListOf<Order>()
+    fun addOrder(order: Order) { orders.add(order) }
+    fun getAllOrders(): List<Order> = orders
+    fun getTopOrders(limit: Int = 10): List<Order> = orders.sortedByDescending { it.totalCost }.take(limit)
+    fun deleteOrder(orderId: Int) { orders.removeAll { it.id == orderId } }
+    fun getOrdersAbove(totalCostThreshold: Double): List<Order> {
+        return orders.filter { it.totalCost > totalCostThreshold }
+    }
+
+}
 
 class IceCreamViewModel : ViewModel() {
+
     private val _cartItems = mutableStateListOf<CartItem>()
     val cartItems: List<CartItem> = _cartItems
 
@@ -56,6 +77,8 @@ class IceCreamViewModel : ViewModel() {
 
     private val costPerCup = 3.39
     private val costPerCone = 3.69
+
+    //add to cart button functionality
     fun addToCart(item: CartItem) {
         val flavorPrice = flavorPricing[item.flavor] ?: 0.0 // Default to 0.0 if not found
         val baseCost = if (item.type == "Cup") costPerCup else costPerCone
@@ -65,10 +88,13 @@ class IceCreamViewModel : ViewModel() {
         calculateTotalCost()
     }
 
+    // remove from cart button functionality
     fun removeFromCart(itemIndex: Int) {
         _cartItems.removeAt(itemIndex)
         calculateTotalCost()
     }
+
+    //apply discount code functionality
     fun applyCoupon(code: String) {
         if (code.isEmpty()) {
             // Reset discount if coupon code is erased
@@ -83,12 +109,19 @@ class IceCreamViewModel : ViewModel() {
         calculateTotalCost()
     }
 
+    //for recalcualte the total cost whenever item added or deleted
     private fun calculateTotalCost() {
         val subtotal = _cartItems.sumOf { it.cost }
         val discountAmount = subtotal * _couponDiscount.value
         _totalCost.value = subtotal - discountAmount
     }
+    fun clearCart() {
+        _cartItems.clear()
+        calculateTotalCost() // Recalculate the total cost which should now be 0
+    }
 }
+
+//mapof function used from kotlin documentation ref: https://kotlinlang.org/docs/map-operations.html
 val flavorPricing = mapOf(
     "Mango" to 3.5,
     "Strawberry" to 2.0,
@@ -109,33 +142,32 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             IcecreamappTheme {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize() // Fill the available space
-                        .background(color = Color(0xFFE6E6FA)) // Set the background color
-                ) {
-                    IceCreamShopScreen()
+                // Navigation setup
+                val navController = rememberNavController()
+                NavHost(navController = navController, startDestination = "iceCreamShop") {
+                    composable("iceCreamShop") { IceCreamShopScreen(navController = navController) }
+                    composable("orderHistory") { OrderHistoryScreen(navController = navController) }
                 }
-            }
-
             }
         }
     }
+}
 
+//
 @Composable
-fun IceCreamShopScreen(viewModel: IceCreamViewModel = viewModel()) {
-    // This scroll state allows the entire column content to scroll
+fun IceCreamShopScreen(navController: NavController, viewModel: IceCreamViewModel = viewModel()) {
+    // This scroll state allows the entire column content to scroll if screen rotated and persist the values.
     val scrollState = rememberScrollState()
 
     Column(
         modifier = Modifier
-            .verticalScroll(scrollState) // Allow vertical scrolling
+            .verticalScroll(scrollState) // Allow vertical scrolling if screen rotation happens. reference:https://developer.android.com/
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         IceCreamAppBar()
         IceCreamSelectionUI(viewModel)
-        CartSummary(viewModel)
+        CartSummary(viewModel, navController)
     }
 }
 
@@ -162,6 +194,7 @@ fun IceCreamAppBar() {
     }
 }
 
+//main ui function starts here
 @Composable
 fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
     val context = LocalContext.current
@@ -210,7 +243,7 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
             }
         )
     }
-    // Flavor selection with LazyColumn
+    // Flavor selection with LazyColumn implementation
     Text("\uD83C\uDF68 Select Flavor: \uD83C\uDF67", Modifier
         .padding(top = 8.dp)
         .padding(bottom = 8.dp))
@@ -218,11 +251,11 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
         modifier = Modifier
             .height(150.dp)
             .fillMaxWidth()
-            .background(Color.White) // Background color for the border
+            .background(Color.White)
             .border(1.dp, Color.Blue, shape = RoundedCornerShape(8.dp))
-            // Border color and width
-            .padding(4.dp) // Padding inside the border
+            .padding(4.dp)
     ) {
+        //lazy column with scroll
         LazyColumn(
             modifier = Modifier.fillMaxSize()
         ) {
@@ -246,13 +279,14 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
         }
     }
 
-    // Quantity selection
+    // Quantity selection with + and - functions
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
         Button(onClick = { if (quantity > 1) quantity-- }) { Text("-") }
         Text("$quantity", Modifier.padding(horizontal = 8.dp))
         Button(onClick = { quantity++ }) { Text("+") }
     }
 
+    //coupon code ui with apply button
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         OutlinedTextField(
             value = couponCode,
@@ -262,7 +296,7 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
             modifier = Modifier.weight(0.7f)
         )
 
-        Spacer(modifier = Modifier.width(8.dp)) // Optional space between the text field and button
+        Spacer(modifier = Modifier.width(8.dp))
 
         Button(
             onClick = {
@@ -278,7 +312,6 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
             Text("Apply")
         }
 
-
     }
     if (couponDiscount > 0) {
         Text(
@@ -287,7 +320,7 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
             modifier = Modifier.padding(vertical = 8.dp)
         )
     }
-    // Add to Cart Button
+    // Add to Cart Button implementation
     Button(
         onClick = {
             val cost = if (selectedItem == "Cup") costPerCup else costPerCone
@@ -305,16 +338,15 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
 fun CartItemsList(viewModel: IceCreamViewModel) {
     val cartItems = viewModel.cartItems
 
-
     Text(" \uD83D\uDED2 Cart Items:", Modifier.padding(8.dp))
 
-    val cornerShape = RoundedCornerShape(8.dp) // Adjust the corner radius as per your preference
+    val cornerShape = RoundedCornerShape(8.dp)
 
     // Specify the maximum height for the LazyColumn
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = 180.dp) // Set the max height to your preference
+            .heightIn(max = 150.dp)
             .clip(cornerShape) // Apply the rounded corners to the box
             .background(Color.LightGray) // Set the background color
     ) {
@@ -328,6 +360,7 @@ fun CartItemsList(viewModel: IceCreamViewModel) {
         }
     }
 }
+//cart item list to be shown
 @Composable
 fun CartItemRow(cartItem: CartItem, onRemove: () -> Unit) {
     Row(
@@ -347,35 +380,136 @@ fun CartItemRow(cartItem: CartItem, onRemove: () -> Unit) {
     }
 }
 @Composable
-fun CartSummary(viewModel: IceCreamViewModel) {
+fun CartSummary(viewModel: IceCreamViewModel, navController: NavController) {
     val totalCost by viewModel.totalCost
     val couponDiscount = viewModel.couponDiscount.value
     val originalTotal = viewModel.cartItems.sumOf { it.cost }
     val discountAmount = originalTotal * couponDiscount
+    val context = LocalContext.current
 
-
+    //only shown if discount is applied
     Column(modifier = Modifier.padding(8.dp)) {
         if (couponDiscount > 0) {
             Text(
-                text = "   Discount: -$${String.format("%.2f", discountAmount)}",
+                text = "  Discount: -$${String.format("%.2f", discountAmount)}",
                 style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold),
                 color=Color.Red,
                 modifier = Modifier.padding(vertical = 4.dp)
             )
         }
+        //total cost shown
         Text(
             text = "Total Cost: $${String.format("%.2f", totalCost)}",
             style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold),
             modifier = Modifier.padding(8.dp)
         )
     }
+    Row(modifier = Modifier.padding(8.dp)) {
+        Button(
+            onClick = {
+                // Assuming the order ID is generated by incrementing the size of the orders list for simplicity
+                val orderId = DummyDatabase.getAllOrders().size + 1
+                val newOrder = Order(id = orderId, items = viewModel.cartItems, totalCost = totalCost)
+                DummyDatabase.addOrder(newOrder)
+                viewModel.clearCart()
+                Toast.makeText(context, "Order Placed", Toast.LENGTH_SHORT).show()
+            },
+            modifier = Modifier.padding(end = 8.dp)
+        ) {
+            Text("Place Order")
+        }
+        Button(onClick = { navController.navigate("orderHistory") }) {
+            Text("View Order History")
+        }
+    }
+}
+
+@Composable
+fun OrderHistoryScreen(navController: NavController? = null) {
+    var showAllOrders by remember { mutableStateOf(true) }
+    var showTopOrders by remember { mutableStateOf(false) }
+    var showOrdersAbove50 by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.Center, modifier = Modifier.padding(10.dp)) {
+        // Toggle buttons for filtering
+        Button(onClick = {
+            showAllOrders = true
+            showTopOrders = false
+            showOrdersAbove50 = false
+        }) {
+            Text("Show All Orders")
+        }
+        // Divider line using Box
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)  // Adjust height for line thickness
+                .background(color = Color.Gray)  // Set desired color
+                .padding(15.dp)
+        )
+
+        Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.padding(10.dp)) {
+
+            Button(
+                onClick = {
+                    showTopOrders = true
+                    showAllOrders = false
+                    showOrdersAbove50 = false
+                },
+                modifier = Modifier
+                    .weight(1f)  // Assign equal weight
+                    .padding(end = 10.dp)
+            ) {
+                Text("Show Top 10 Orders")
+            }
+            Button(
+                // Apply corrections here
+                onClick = {
+                    showOrdersAbove50 = true
+                    showAllOrders = false
+                    showTopOrders = false
+                },
+            ) {
+                Text("Show Orders > $50")  // Allow wrapping
+            }
+        }
+    }
+
+        // Dynamic content based on selection
+        when {
+            showAllOrders -> OrdersList(orders = DummyDatabase.getAllOrders())
+            showTopOrders -> OrdersList(orders = DummyDatabase.getTopOrders())
+            showOrdersAbove50 -> OrdersList(orders = DummyDatabase.getOrdersAbove(50.0))
+        }
+
 }
 
 
-@Preview(showBackground = true)
+
 @Composable
-fun DefaultPreview() {
-    IcecreamappTheme {
-        IceCreamShopScreen()
+fun OrdersList(orders: List<Order>) {
+    val updatedOrders = remember { mutableStateOf(orders) }
+
+    LazyColumn {
+        items(updatedOrders.value) { order ->
+            OrderItem(order = order, onDelete = { orderId ->
+                DummyDatabase.deleteOrder(orderId)
+                updatedOrders.value = updatedOrders.value.filterNot { it.id == orderId }
+            })
+        }
+    }
+}
+
+
+@Composable
+fun OrderItem(order: Order, onDelete: (Int) -> Unit) {
+    Card(modifier = Modifier.padding(8.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Order ID: ${order.id}", fontWeight = FontWeight.Bold)
+            Text("Total Cost: $${String.format("%.2f", order.totalCost)}")
+            Button(onClick = { onDelete(order.id) }, modifier = Modifier.padding(top = 8.dp)) {
+                Text("Delete Order")
+            }
+        }
     }
 }
