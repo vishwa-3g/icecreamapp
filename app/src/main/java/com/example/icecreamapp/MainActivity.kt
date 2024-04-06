@@ -1,5 +1,6 @@
 package com.example.icecreamapp
 
+import android.app.Application
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -47,7 +48,6 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,12 +59,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.room.ColumnInfo
+import androidx.room.Dao
+import androidx.room.Database
+import androidx.room.Delete
+import androidx.room.Entity
+import androidx.room.Insert
+import androidx.room.PrimaryKey
+import androidx.room.Query
+import androidx.room.Room
+import androidx.room.RoomDatabase
 import com.example.icecreamapp.ui.theme.IcecreamappTheme
 
 //cart items list
@@ -74,39 +84,10 @@ data class CartItem(
     val quantity: Int,
     val cost: Double
 )
-data class Order(
-    val id: Int,
-    val items: List<CartItem>,
-    val totalCost: Double
-) {
-    // Calculate the number of items in the order by summing the quantities of each cart item
-    val numberOfItems: Int get() = items.sumOf { it.quantity }
-}
 
+class IceCreamViewModel(application: Application) : AndroidViewModel(application) {
+    private val db: AppDatabase = Room.databaseBuilder(application, AppDatabase::class.java, "ice-cream-app-db").build()
 
-object DummyDatabase {
-    private val orders = mutableListOf<Order>()
-
-    fun addOrder(order: Order) {
-        orders.add(order)
-    }
-
-    fun getAllOrders(): List<Order> = orders
-
-    fun getTopOrders(limit: Int = 10): List<Order> =
-        orders.sortedByDescending { it.totalCost }.take(limit)
-
-    fun deleteOrder(orderId: Int) {
-        orders.removeAll { it.id == orderId }
-    }
-
-    fun getOrdersAbove(totalCostThreshold: Double): List<Order> =
-        orders.filter { it.totalCost > totalCostThreshold }
-
-    // Additional methods for handling orders can be added here
-}
-
-class IceCreamViewModel : ViewModel() {
 
     private val _cartItems = mutableStateListOf<CartItem>()
     val cartItems: List<CartItem> = _cartItems
@@ -178,10 +159,40 @@ val flavorPricing = mapOf(
     "Caramel" to 1.5,
     "Almond" to 3.5
 )
+@Entity(tableName = "orders") // Explicit table name
+data class Order(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @ColumnInfo(name = "items") val items: Int,
+    @ColumnInfo(name = "total_cost") val totalCost: Double
+)
 
+@Dao
+interface OrderDao {
+    @Query("SELECT * FROM orders")  // Use explicit table name
+    fun getAll(): List<Order>
+
+    @Insert
+    fun insertAll(vararg orders: Order)
+
+    @Delete
+    fun delete(order: Order)
+}
+@Database(entities = [Order::class], version = 1)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun orderDao(): OrderDao
+}
+public lateinit var db: AppDatabase
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        db = Room.databaseBuilder(
+            applicationContext,
+            AppDatabase::class.java, "ice-cream-app-db"
+        ).allowMainThreadQueries() // This is not recommended; see note below
+            .build()
+
+
         setContent {
             IcecreamappTheme {
                 // Navigation setup
@@ -195,7 +206,14 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-//
+fun placeOrder(items: Int, totalCost: Double) {
+    // Use Room's database builder to create the database instance
+    val newOrder = Order(items = items, totalCost = totalCost)
+    // Insert the new order into the database
+    // Note: This should be done on a background thread in a real application
+    db.orderDao().insertAll(newOrder)
+}
+
 @Composable
 fun IceCreamShopScreen(navController: NavController, viewModel: IceCreamViewModel = viewModel()) {
     // This scroll state allows the entire column content to scroll if screen rotated and persist the values.
@@ -449,20 +467,18 @@ fun CartSummary(viewModel: IceCreamViewModel, navController: NavController) {
     }
     Row(modifier = Modifier.padding(8.dp)) {
         Button(
-            onClick = {
-                if (totalCost > 0) {
-                    val orderId = (DummyDatabase.getAllOrders().maxByOrNull { it.id }?.id ?: 0) + 1
-                    val newOrder = Order(id = orderId, items = cartItems.toList(), totalCost = totalCost)
-                    DummyDatabase.addOrder(newOrder)
-                    viewModel.clearCart()
-                    Toast.makeText(context, "Order Placed", Toast.LENGTH_SHORT).show()
-                }
-            },
-            enabled = totalCost > 0,
-            modifier = Modifier.padding(end = 8.dp)
-        ) {
-            Text("Place Order")
-        }
+        onClick = {
+            // Assuming `cartItems` and `totalCost` reflect the final order details
+                val itemsCount = cartItems.sumOf { it.quantity }
+                placeOrder(itemsCount, totalCost)
+                viewModel.clearCart()
+                Toast.makeText(context, "Order Placed", Toast.LENGTH_SHORT).show()
+
+        },
+        modifier = Modifier.padding(end = 8.dp)
+    ) {
+        Text("Place Order")
+    }
         Button(onClick = { navController.navigate("orderHistory") }) {
             Text("View Order History")
         }
@@ -470,24 +486,22 @@ fun CartSummary(viewModel: IceCreamViewModel, navController: NavController) {
 }
 
 @Composable
-fun OrderHistoryScreen(navController: NavController? = null) {
+fun OrderHistoryScreen(navController: NavController? = null, viewModel: IceCreamViewModel = viewModel()) {
+    // Use viewModel to fetch orders from the database
+    val context = LocalContext.current
     var showAllOrders by remember { mutableStateOf(true) }
     var showTopOrders by remember { mutableStateOf(false) }
     var showOrdersAbove50 by remember { mutableStateOf(false) }
-    var ordersToShow by remember { mutableStateOf(DummyDatabase.getAllOrders().toMutableStateList()) }
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally, // Center the content horizontally
-        modifier = Modifier.fillMaxSize()
-    ) {
+    var ordersToShow by remember { mutableStateOf(emptyList<Order>()) }
 
-        Button(
-            onClick = {
-                showAllOrders = true
-                showTopOrders = false
-                showOrdersAbove50 = false
-                ordersToShow = DummyDatabase.getAllOrders().toMutableStateList()
-            }
-        ) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
+        Button(onClick = {
+            showAllOrders = true
+            showTopOrders = false
+            showOrdersAbove50 = false
+            // Fetch all orders from the database
+            //ordersToShow = viewModel.getAll()
+        }) {
             Text("Show All Orders")
         }
 
@@ -502,10 +516,7 @@ fun OrderHistoryScreen(navController: NavController? = null) {
         Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
             Button(
                 onClick = {
-                    showTopOrders = true
-                    showAllOrders = false
-                    showOrdersAbove50 = false
-                    ordersToShow = DummyDatabase.getTopOrders().toMutableStateList()
+                    // Placeholder for future implementation
                 },
                 modifier = Modifier
                     .weight(1f)
@@ -515,10 +526,7 @@ fun OrderHistoryScreen(navController: NavController? = null) {
             }
             Button(
                 onClick = {
-                    showOrdersAbove50 = true
-                    showAllOrders = false
-                    showTopOrders = false
-                    ordersToShow = DummyDatabase.getOrdersAbove(50.0).toMutableStateList()
+                    // Placeholder for future implementation
                 },
                 modifier = Modifier.weight(1f)
             ) {
@@ -528,54 +536,37 @@ fun OrderHistoryScreen(navController: NavController? = null) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Conditionally render OrdersList based on ordersToShow
-        if (ordersToShow.isNotEmpty()) {
+        // Dynamically display orders based on the selection
+        if (showAllOrders) {
             OrdersList(orders = ordersToShow, onDelete = { orderId ->
-                DummyDatabase.deleteOrder(orderId)
-                ordersToShow = DummyDatabase.getAllOrders().toMutableStateList() // This triggers recomposition
+               // viewModel.deleteOrder(orderId)
+               // ordersToShow = viewModel.getAll() // Refresh the list after deletion
             })
-        } else {
-            Text(
-                text = "No orders found",
-                fontWeight = FontWeight.Bold, // Make the text bold
-                color = Color.Red // Set the text color to red
-            )
         }
-        // Spacer to push the back button to the bottom
+
         Spacer(modifier = Modifier.weight(1f))
 
-        // Back button
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Button(
-                onClick = {
-                    navController?.popBackStack()
-                },
-                modifier = Modifier.padding(bottom = 16.dp) // Add bottom padding to create space
-            ) {
-                Text("Back")
-            }
+        Button(onClick = { navController?.popBackStack() }, modifier = Modifier.padding(bottom = 16.dp)) {
+            Text("Back")
         }
     }
 }
 
 @Composable
-fun OrdersList(orders: MutableList<Order>, onDelete: (Int) -> Unit) {
+fun OrdersList(orders: List<Order>, onDelete: (Int) -> Unit) {
     LazyColumn {
         items(orders, key = { order -> order.id }) { order ->
             OrderItem(order = order, onDelete = onDelete)
         }
     }
 }
+
 @Composable
 fun OrderItem(order: Order, onDelete: (Int) -> Unit) {
     Card(modifier = Modifier.padding(8.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Order ID: ${order.id}", fontWeight = FontWeight.Bold)
-            // Display the number of items in the order
-            Text("Number of Items: ${order.numberOfItems}")
+            Text("Number of Items: ${order.items}")
             Text("Total Cost: $${String.format("%.2f", order.totalCost)}")
             Button(onClick = { onDelete(order.id) }) {
                 Text("Delete Order")
@@ -583,3 +574,6 @@ fun OrderItem(order: Order, onDelete: (Int) -> Unit) {
         }
     }
 }
+
+
+
