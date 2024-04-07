@@ -26,6 +26,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -42,6 +43,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -89,18 +92,20 @@ data class CartItem(
     val cost: Double
 )
 
+//ice cream viewmodel for showing dynamic order list,functions and cart values
 class IceCreamViewModel(application: Application) : AndroidViewModel(application) {
+    // database instance builder
     private val db: AppDatabase = Room.databaseBuilder(application, AppDatabase::class.java, "ice-cream-app-db").build()
-
+    //cart times list
     private val _cartItems = mutableStateListOf<CartItem>()
     val cartItems: List<CartItem> = _cartItems
-
+    //discount code implementation
     private var _couponDiscount = mutableStateOf(0.0)
     val couponDiscount: State<Double> = _couponDiscount
-
+    //total-cost value
     private val _totalCost = mutableStateOf(0.0)
     val totalCost: State<Double> = _totalCost
-
+//cup cone dropdown value declaration
     private val costPerCup = 3.39
     private val costPerCone = 3.69
 
@@ -135,21 +140,24 @@ class IceCreamViewModel(application: Application) : AndroidViewModel(application
         calculateTotalCost()
     }
 
-    //for recalcualte the total cost whenever item added or deleted
+    //for recalculate the total cost whenever item added or deleted
     private fun calculateTotalCost() {
         val subtotal = _cartItems.sumOf { it.cost }
         val discountAmount = subtotal * _couponDiscount.value
         _totalCost.value = subtotal - discountAmount
     }
+    //clear cart once order placed
     fun clearCart() {
         _cartItems.clear()
         calculateTotalCost() // Recalculate the total cost which should now be 0
     }
+    //to capture list of orders
     private val _ordersList = mutableStateOf(listOf<Order>())
     val ordersList: State<List<Order>> = _ordersList
     init {
         fetchAllOrdersAsync()
     }
+    //async coroutine function to fetch orders and show on order history screen
     fun fetchAllOrdersAsync() = viewModelScope.launch {
         // Switch to IO dispatcher for database access
         val orders = withContext(Dispatchers.IO) {
@@ -157,18 +165,30 @@ class IceCreamViewModel(application: Application) : AndroidViewModel(application
         }
         _ordersList.value = orders
     }
+    //async coroutine function to fetch top 10 orders and show on order history screen
     fun fetchTopTenOrdersAsync() = viewModelScope.launch {
         val orders = withContext(Dispatchers.IO) {
             db.orderDao().getTopTenOrders()
         }
         _ordersList.value = orders
     }
+    //async coroutine function to fetch more than 50 cost orders and show on order history screen
     fun fetchOrdersOverFiftyAsync() = viewModelScope.launch {
         val orders = withContext(Dispatchers.IO) {
             db.orderDao().getOrdersOverFifty()
         }
         _ordersList.value = orders
     }
+    //execute , delete order function and revise order list function
+    fun deleteOrder(order: Order, onDeleteCompleted: () -> Unit) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                db.orderDao().delete(order)
+            }
+            onDeleteCompleted() // Call the callback after deletion
+        }
+    }
+
 }
 //mapof function used from kotlin documentation ref: https://kotlinlang.org/docs/map-operations.html
 val flavorPricing = mapOf(
@@ -185,6 +205,7 @@ val flavorPricing = mapOf(
     "Caramel" to 1.5,
     "Almond" to 3.5
 )
+//table name for DB declaration
 @Entity(tableName = "orders") // Explicit table name
 data class Order(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
@@ -192,9 +213,10 @@ data class Order(
     @ColumnInfo(name = "total_cost") val totalCost: Double
 )
 
+//query to interact with DB declaration
 @Dao
 interface OrderDao {
-    @Query("SELECT * FROM orders")  // Use explicit table name
+    @Query("SELECT * FROM orders")
     fun getAll(): List<Order>
 
     @Insert
@@ -210,21 +232,24 @@ interface OrderDao {
     fun getOrdersOverFifty(): List<Order>
 
 }
+//create assistance of db to interact with application from backed
 @Database(entities = [Order::class], version = 1)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun orderDao(): OrderDao
 }
+//db instance to be used for operations
 public lateinit var db: AppDatabase
+//main entry function
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        //db instance builder to use in application
         db = Room.databaseBuilder(
             applicationContext,
             AppDatabase::class.java, "ice-cream-app-db"
-        ).allowMainThreadQueries() // This is not recommended; see note below
+        ).allowMainThreadQueries()
             .build()
-
 
         setContent {
             IcecreamappTheme {
@@ -239,14 +264,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// Insert the new order into the database
 fun placeOrder(items: Int, totalCost: Double) {
-    // Use Room's database builder to create the database instance
     val newOrder = Order(items = items, totalCost = totalCost)
-    // Insert the new order into the database
-    // Note: This should be done on a background thread in a real application
     db.orderDao().insertAll(newOrder)
 }
-
+//main entry screen
 @Composable
 fun IceCreamShopScreen(navController: NavController, viewModel: IceCreamViewModel = viewModel()) {
     // This scroll state allows the entire column content to scroll if screen rotated and persist the values.
@@ -263,7 +286,7 @@ fun IceCreamShopScreen(navController: NavController, viewModel: IceCreamViewMode
         CartSummary(viewModel, navController)
     }
 }
-
+//top app bar to be shown
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun IceCreamAppBar() {
@@ -308,7 +331,6 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
         modifier = Modifier
             .fillMaxWidth()
             .onGloballyPositioned { coordinates ->
-                // This is needed to align the DropdownMenu with the TextField
             },
         label = { Text("Select Type") },
         trailingIcon = {
@@ -316,6 +338,7 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
                 Modifier.clickable { expanded = !expanded })
         }
     )
+    //dropdown for cup and cone
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = { expanded = false },
@@ -391,6 +414,7 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
 
         Spacer(modifier = Modifier.width(8.dp))
 
+        //apply code button
         Button(
             onClick = {
                 viewModel.applyCoupon(couponCode)
@@ -404,8 +428,8 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
         ) {
             Text("Apply")
         }
-
     }
+    //UI to notify user that discount has applied successfully
     if (couponDiscount > 0) {
         Text(
             text = "\uD83C\uDF89 Discount Applied Successfully! \uD83C\uDF89",
@@ -418,15 +442,14 @@ fun IceCreamSelectionUI(viewModel: IceCreamViewModel) {
         onClick = {
             val cost = if (selectedItem == "Cup") costPerCup else costPerCone
             viewModel.addToCart(CartItem(selectedItem, selectedFlavor, quantity, cost))
-            Toast.makeText(context, "Added to cart ✔", Toast.LENGTH_SHORT).show()
         },
-
         modifier = Modifier.padding(top = 10.dp)
     ) {
         Text("Add to Cart")
     }
     CartItemsList(viewModel)
 }
+// show cart items added in viewmodel list
 @Composable
 fun CartItemsList(viewModel: IceCreamViewModel) {
     val cartItems = viewModel.cartItems
@@ -434,19 +457,18 @@ fun CartItemsList(viewModel: IceCreamViewModel) {
     Text(" \uD83D\uDED2 Cart Items:", Modifier.padding(8.dp))
 
     val cornerShape = RoundedCornerShape(8.dp)
-
-    // Specify the maximum height for the LazyColumn
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(max = 150.dp)
-            .clip(cornerShape) // Apply the rounded corners to the box
-            .background(Color.LightGray) // Set the background color
+            .clip(cornerShape)
+            .background(Color.LightGray)
     ) {
         LazyColumn {
             itemsIndexed(cartItems) { index, item ->
                 CartItemRow(
                     cartItem = item,
+                    //remove cart item from list
                     onRemove = { viewModel.removeFromCart(index) }
                 )
             }
@@ -472,12 +494,13 @@ fun CartItemRow(cartItem: CartItem, onRemove: () -> Unit) {
         }
     }
 }
+//cart-summary ui to be shown
 @Composable
 fun CartSummary(viewModel: IceCreamViewModel, navController: NavController) {
     val totalCost by viewModel.totalCost
     val couponDiscount = viewModel.couponDiscount.value
     val originalTotal = viewModel.cartItems.sumOf { it.cost }
-    val discountAmount = originalTotal * couponDiscount
+    val discountAmount = originalTotal * couponDiscount // Reference to discount amount
     val context = LocalContext.current
     val cartItems = viewModel.cartItems  // Reference to cart items
 
@@ -498,6 +521,7 @@ fun CartSummary(viewModel: IceCreamViewModel, navController: NavController) {
             modifier = Modifier.padding(8.dp)
         )
     }
+    //place order button code and functionality
     Row(modifier = Modifier.padding(8.dp)) {
         Box {
             if (totalCost != 0.00) {
@@ -510,20 +534,34 @@ fun CartSummary(viewModel: IceCreamViewModel, navController: NavController) {
                     },
                     modifier = Modifier.padding(end = 8.dp)
                 ) {
-                    Text("Place Order")
+                    Text("Place Order ➕")
                 }
             }
         }
+        //to view order history screen (navigation added!)
         Button(onClick = { navController.navigate("orderHistory") }) {
-            Text("View Order History")
+            Text("\uD83D\uDCCB View Order History")
         }
     }
 }
 
+//order history screen to show orders and delete if required
 @Composable
 fun OrderHistoryScreen(navController: NavController? = null, viewModel: IceCreamViewModel = viewModel()) {
+    // Back arrow at the top left to go back on main screen (navigation added)
+    IconButton(
+        onClick = { navController?.popBackStack() },
+        modifier = Modifier
+            .padding(start = 16.dp) // Add top and start padding
+    ) {
+        Icon(
+            imageVector = Icons.Filled.ArrowBack,
+            contentDescription = "Back"
+        )
+    }
     // Use viewModel to fetch orders from the database
     val ordersToShow by viewModel.ordersList
+    // get all orders button and trigger function for DAO to fetch data from room and show it in viewmodel
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
         Button(onClick = {
             viewModel.fetchAllOrdersAsync()
@@ -534,8 +572,9 @@ fun OrderHistoryScreen(navController: NavController? = null, viewModel: IceCream
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp)  // Add horizontal padding to the Row
+                .padding(horizontal = 10.dp)
         ) {
+            // get top 10 orders button and trigger function for DAO to fetch data from room and show it in viewmodel
             Button(
                 onClick = {
                     viewModel.fetchTopTenOrdersAsync() // Fetches top 10 orders
@@ -546,6 +585,7 @@ fun OrderHistoryScreen(navController: NavController? = null, viewModel: IceCream
             ) {
                 Text("Show Top 10 Orders")
             }
+            // get >50 cost orders button and trigger function for DAO to fetch data from room and show it in viewmodel
             Button(
                 onClick = {
                     viewModel.fetchOrdersOverFiftyAsync() // Fetches orders over $50
@@ -556,41 +596,62 @@ fun OrderHistoryScreen(navController: NavController? = null, viewModel: IceCream
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
-
         Spacer(modifier = Modifier.weight(1f))
 
         if (ordersToShow.isNotEmpty()) {
-            OrdersList(orders = ordersToShow)
-        }
-        else
-        {
-            Text("No orders Found!")
-        }
+            OrdersList(orders = ordersToShow, viewModel = viewModel) // Pass viewModel to OrdersList
 
+        } else {
+            Text(
+                "No orders Found!",
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(top = 16.dp) // Adjust padding value as needed
+                ,
+                fontSize = 30.sp, // Adjust font size as needed
+                fontWeight = FontWeight.Bold
+            )
 
-        Button(onClick = { navController?.popBackStack() }, modifier = Modifier.padding(bottom = 16.dp)) {
-            Text("Back")
         }
     }
 }
-
+//function to show and list the orders based on conditions
 @Composable
-fun OrdersList(orders: List<Order>) {
+fun OrdersList(orders: List<Order>, viewModel: IceCreamViewModel) {
+    val refreshOrders = remember { mutableStateOf(false) } // State variable to trigger refresh
+
+    LaunchedEffect(refreshOrders.value) { // Trigger on refreshOrders change
+        if (refreshOrders.value) {
+            viewModel.fetchAllOrdersAsync() // Refresh orders
+            refreshOrders.value = false // Reset refresh flag
+        }
+    }
+
     LazyColumn {
         items(orders, key = { order -> order.id }) { order ->
-            OrderItem(order = order)
+            OrderItem(order = order, viewModel = viewModel, refreshOrders = refreshOrders) // Pass refreshOrders to OrderItem
         }
     }
 }
-
+//UI with delete function to show for each order on order hsi-troy screen (called based on conditions and refreshed if any operations done)
 @Composable
-fun OrderItem(order: Order) {
-    Card(modifier = Modifier.padding(8.dp)) {
+fun OrderItem(order: Order, viewModel: IceCreamViewModel, refreshOrders: MutableState<Boolean>) {
+    //UI to show order details card on order history screen
+    Card(
+        modifier = Modifier.padding(8.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Order ID: ${order.id}", fontWeight = FontWeight.Bold)
             Text("Number of Items: ${order.items}")
             Text("Total Cost: $${String.format("%.2f", order.totalCost)}")
-            // Remove the delete button
+
+            //delete icon ui with code to trigger in DB once clicked to delete the specific order from DB
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                IconButton(onClick = {
+                    viewModel.deleteOrder(order) { refreshOrders.value = true } // Set refresh flag after deletion
+                }) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete Order")
+                }
+            }
         }
     }
 }
