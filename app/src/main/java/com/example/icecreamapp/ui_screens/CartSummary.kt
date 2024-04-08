@@ -1,7 +1,6 @@
 package com.example.icecreamapp.screens
 
 import android.widget.Toast
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -49,20 +48,19 @@ fun CartSummary(viewModel: IceCreamViewModel, navController: NavController) {
     }
     //place order button code and functionality
     Row(modifier = Modifier.padding(8.dp)) {
-        Box {
-            if (totalCost != 0.00) {
-                Button(
-                    onClick = {
-                        val itemsCount = cartItems.sumOf { it.quantity }
-                        placeOrder(itemsCount, totalCost)
-                        viewModel.clearCart()
-                        Toast.makeText(context, "Order Placed Successfully!", Toast.LENGTH_SHORT).show()
-                    },
-                    modifier = Modifier.padding(end = 8.dp)
-                ) {
-                    Text("Place Order ➕")
+        Button(
+            onClick = {
+                if (totalCost != 0.00) {
+                    val itemsCount = cartItems.sumOf { it.quantity }
+                    placeOrder(itemsCount, totalCost)
+                    viewModel.clearCart()
+                    Toast.makeText(context, "Order Placed Successfully!", Toast.LENGTH_SHORT).show()
                 }
-            }
+            },
+            enabled = totalCost != 0.00, // Enable button only when totalCost is not 0
+            modifier = Modifier.padding(end = 8.dp)
+        ) {
+            Text("Place Order")
         }
         //to view order history screen (navigation added!)
         Button(onClick = { navController.navigate("orderHistory") }) {
